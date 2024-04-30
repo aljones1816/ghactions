@@ -33,7 +33,7 @@ jobs:
 
                   # Check for duplicate timestamps
                   if [[ -n "${timestamps[$timestamp]}" ]]; then
-                      echo "Error: Duplicate timestamp $timestamp found in file $filename."
+                      echo "Error: Duplicate version number $timestamp."
                       return 1
                   fi
 
