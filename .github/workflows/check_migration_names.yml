@@ -24,7 +24,7 @@ jobs:
 
                   # Check if file matches the naming pattern
                   if [[ ! $filename =~ $FILE_PATTERN ]]; then
-                      echo "Error: File $filename does not match the naming policy."
+                      echo "Error: File $filename has an invalid version number, please use format Vyyyymmddhhss__."
                       return 1
                   fi
 
