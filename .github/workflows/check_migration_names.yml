@@ -19,13 +19,15 @@ jobs:
           check_file_names() {
               declare -A timestamps
               max_timestamp=0
-              find db -type f | while read file; do
+
+              # Iterate over files without using a pipe
+              while IFS= read -r -d '' file; do
                   filename=$(basename "$file")
 
                   # Check if file matches the naming pattern
                   if [[ ! $filename =~ $FILE_PATTERN ]]; then
-                      echo "Error: File $filename has an invalid version number, please use format Vyyyymmddhhss__."
-                      return 1
+                      echo "Error: File $filename does not match the naming policy."
+                      exit 1
                   fi
 
                   # Extract timestamp from the filename
@@ -33,8 +35,8 @@ jobs:
 
                   # Check for duplicate timestamps
                   if [[ -n "${timestamps[$timestamp]}" ]]; then
-                      echo "Error: Duplicate version number $timestamp."
-                      return 1
+                      echo "Error: Duplicate timestamp $timestamp found in file $filename."
+                      exit 1
                   fi
 
                   # Record this timestamp
@@ -44,33 +46,29 @@ jobs:
                   if (( timestamp > max_timestamp )); then
                       max_timestamp=$timestamp
                   fi
-              done
+              done < <(find db -type f -print0)
 
-              # Retrieve the current maximum timestamp in the target branch
+              # Check timestamps against the current branch
               git fetch origin ${{ github.base_ref }}
               git checkout origin/${{ github.base_ref }}
               current_max_timestamp=0
-              find db -type f | while read file; do
+
+              # Iterate over files in the target branch
+              while IFS= read -r -d '' file; do
                   if [[ $(basename "$file") =~ $FILE_PATTERN ]]; then
                       existing_timestamp="${BASH_REMATCH[1]}"
                       if (( existing_timestamp > current_max_timestamp )); then
                           current_max_timestamp=$existing_timestamp
                       fi
                   fi
-              done
+              done < <(find db -type f -print0)
 
-              # Check if the maximum new timestamp is greater than the existing maximum timestamp
+              # Final timestamp check
               if (( max_timestamp <= current_max_timestamp )); then
                   echo "Error: Timestamp $max_timestamp in the new files must be greater than the existing maximum timestamp $current_max_timestamp."
-                  return 1
+                  exit 1
               fi
           }
 
           # Run the check
           check_file_names
-          if [ $? -ne 0 ]; then
-              echo "Commit rejected due to file naming policy."
-              exit 1
-          fi
-
-          exit 0
