@@ -1,77 +1,76 @@
 on:
-    pull_request:
-      paths:
-        - "db/**"
-  
-  jobs:
-    check-file-names:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v2
-        
-        - name: Check File Names
-          run: |
-            #!/bin/bash
-  
-            FILE_PATTERN="^V([0-9]{14})__.*\.sql$"
-  
-            check_file_names() {
-                declare -A timestamps
-                max_timestamp=0
-                find db -type f | while read file; do
-                    filename=$(basename "$file")
-  
-                    # Check if file matches the naming pattern
-                    if [[ ! $filename =~ $FILE_PATTERN ]]; then
-                        echo "Error: File $filename does not match the naming policy."
-                        return 1
-                    fi
-  
-                    # Extract timestamp from the filename
-                    timestamp="${BASH_REMATCH[1]}"
-  
-                    # Check for duplicate timestamps
-                    if [[ -n "${timestamps[$timestamp]}" ]]; then
-                        echo "Error: Duplicate timestamp $timestamp found in file $filename."
-                        return 1
-                    fi
-  
-                    # Record this timestamp
-                    timestamps[$timestamp]=1
-  
-                    # Update the maximum timestamp found
-                    if (( timestamp > max_timestamp )); then
-                        max_timestamp=$timestamp
-                    fi
-                done
-  
-                # Retrieve the current maximum timestamp in the target branch
-                git fetch origin ${{ github.base_ref }}
-                git checkout origin/${{ github.base_ref }}
-                current_max_timestamp=0
-                find db -type f | while read file; do
-                    if [[ $(basename "$file") =~ $FILE_PATTERN ]]; then
-                        existing_timestamp="${BASH_REMATCH[1]}"
-                        if (( existing_timestamp > current_max_timestamp )); then
-                            current_max_timestamp=$existing_timestamp
-                        fi
-                    fi
-                done
-  
-                # Check if the maximum new timestamp is greater than the existing maximum timestamp
-                if (( max_timestamp <= current_max_timestamp )); then
-                    echo "Error: Timestamp $max_timestamp in the new files must be greater than the existing maximum timestamp $current_max_timestamp."
-                    return 1
-                fi
-            }
-  
-            # Run the check
-            check_file_names
-            if [ $? -ne 0 ]; then
-                echo "Commit rejected due to file naming policy."
-                exit 1
-            fi
-  
-            exit 0
-  
+  pull_request:
+    paths:
+      - "db/**"
+
+jobs:
+  check-file-names:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Check File Names
+        run: |
+          #!/bin/bash
+
+          FILE_PATTERN="^V([0-9]{14})__.*\.sql$"
+
+          check_file_names() {
+              declare -A timestamps
+              max_timestamp=0
+              find db -type f | while read file; do
+                  filename=$(basename "$file")
+
+                  # Check if file matches the naming pattern
+                  if [[ ! $filename =~ $FILE_PATTERN ]]; then
+                      echo "Error: File $filename does not match the naming policy."
+                      return 1
+                  fi
+
+                  # Extract timestamp from the filename
+                  timestamp="${BASH_REMATCH[1]}"
+
+                  # Check for duplicate timestamps
+                  if [[ -n "${timestamps[$timestamp]}" ]]; then
+                      echo "Error: Duplicate timestamp $timestamp found in file $filename."
+                      return 1
+                  fi
+
+                  # Record this timestamp
+                  timestamps[$timestamp]=1
+
+                  # Update the maximum timestamp found
+                  if (( timestamp > max_timestamp )); then
+                      max_timestamp=$timestamp
+                  fi
+              done
+
+              # Retrieve the current maximum timestamp in the target branch
+              git fetch origin ${{ github.base_ref }}
+              git checkout origin/${{ github.base_ref }}
+              current_max_timestamp=0
+              find db -type f | while read file; do
+                  if [[ $(basename "$file") =~ $FILE_PATTERN ]]; then
+                      existing_timestamp="${BASH_REMATCH[1]}"
+                      if (( existing_timestamp > current_max_timestamp )); then
+                          current_max_timestamp=$existing_timestamp
+                      fi
+                  fi
+              done
+
+              # Check if the maximum new timestamp is greater than the existing maximum timestamp
+              if (( max_timestamp <= current_max_timestamp )); then
+                  echo "Error: Timestamp $max_timestamp in the new files must be greater than the existing maximum timestamp $current_max_timestamp."
+                  return 1
+              fi
+          }
+
+          # Run the check
+          check_file_names
+          if [ $? -ne 0 ]; then
+              echo "Commit rejected due to file naming policy."
+              exit 1
+          fi
+
+          exit 0
